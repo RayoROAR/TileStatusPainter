@@ -1,9 +1,14 @@
+@tool
 class_name TileStatusHandler
-extends TileMap_Utils
+extends TileMap
 
+const TILESET: TileSet = preload("res://tileset.tres")
 
-var painting_status: int = 0
+var paint_mode: bool = false
 
+var curr_tile_coords: Vector2i
+
+#TODO: Implement Ctrl+Z as Alt+E
 
 # hace el set_cell con la funcion añadida de checkear si esa casilla que queremos pintar existe en el atlas del tileset
 func update_cell(layer: int, tile_coords: Vector2i, tile_atlasCoords: Vector2i, sourceID: int = 0):
@@ -11,47 +16,40 @@ func update_cell(layer: int, tile_coords: Vector2i, tile_atlasCoords: Vector2i, 
 		set_cell(layer, tile_coords, sourceID, tile_atlasCoords)
 
 
+func _ready():
+	pass
 
-#func _unhandled_input(event) -> void: # use this for discrete input detection
-func _input(_event) -> void:
-	# simple debug para mostrar las coordenadas de una tile en el tilemap
-	if Input.is_action_just_pressed("debug"): # middle mouse click
+
+func _process(delta):
+	# pulsar una tecla [1,2,3,4] pinta el status sobre la tile debajo del mouse
+	if Input.is_key_pressed(KEY_ALT):
+		paint_mode = true
+		
 		var mouse_pos = get_global_mouse_position()
-		var tile_coords = floor(mouse_pos / 8)
-		print(tile_coords)
+		curr_tile_coords = floor(mouse_pos / 8)
+		
+		# default behavior
+		if Input.is_key_pressed(KEY_1): paint(curr_tile_coords, 1) # IRON
+		elif Input.is_key_pressed(KEY_2): paint(curr_tile_coords, 2) # COPPER
+		elif Input.is_key_pressed(KEY_3): paint(curr_tile_coords, 3) # GRASS
+		elif Input.is_key_pressed(KEY_4): paint(curr_tile_coords, 4) # CHARRED
+	else:
+		paint_mode = false
 	
-	
-	# pulsar una tecla [1,2,3,4] selecciona el status. Hacer click, lo pinta
-	if Input.is_action_just_pressed("paint_iron"): # tecla "1"
-		painting_status = 1
-		print("Currently painting with IRON")
+	queue_redraw()
+
+
+func _draw():
+	if paint_mode:
+		draw_rect(Rect2(curr_tile_coords*8, Vector2(8,8)), Color(0, 1, 1, 0.3))
+
+
+func paint(tile_coords: Vector2i, status: int):
+	var atlas_coords = get_cell_atlas_coords(0, tile_coords)
+	# solo pintaremos la tile si no es del status que queremos pintar
+	if atlas_coords.y != status - 1:
+		# la tile que queremos pintar sera la misma pero de diferente status (desplazamos la Y)
+		atlas_coords.y = status - 1 # (las coordenadas empiezan por 0 asi que restamos 1)
 		
-	elif Input.is_action_just_pressed("paint_copper"): # tecla "2"
-		painting_status = 2
-		print("Currently painting with COPPER")
-		
-	elif Input.is_action_just_pressed("paint_grass"): # tecla "3"
-		painting_status = 3
-		print("Currently painting with GRASS")
-		
-	elif Input.is_action_just_pressed("paint_charred"): # tecla "4"
-		painting_status = 4
-		print("Currently painting with CHARRED")
-		
-		
-	elif Input.is_action_just_pressed("stop_painting"): # tecla "5"
-		painting_status = 0
-	
-	
-	if Input.is_action_pressed("paint"): # LeftClick
-		if painting_status != 0:
-			var mouse_pos = get_global_mouse_position()
-			var tile_coords = floor(mouse_pos / 8)
-			var atlas_coords = get_cell_atlas_coords(0, tile_coords)
-			
-			# solo pintaremos la tile si no es del status que queremos pintar
-			if atlas_coords.y != painting_status - 1:
-				# la tile que queremos pintar sera la misma pero de diferente status (desplazamos la Y)
-				atlas_coords.y = painting_status - 1 # (las coordenadas empiezan por 0 asi que restamos 1)
-				
-				update_cell(0, tile_coords, atlas_coords)
+		update_cell(0, tile_coords, atlas_coords)
+		print("painted ", tile_coords, " as ",status)
